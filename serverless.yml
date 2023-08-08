@@ -36,7 +36,7 @@ functions:
     handler: getUsers/handler.getUsers
     package:
       patterns: 
-        - "getUsers/**"
+        - "getUsers/handler.js"
     events:
       - http:
           path: users/{id}
@@ -45,7 +45,7 @@ functions:
     handler: createUsers/handler.createUsers
     package:
       patterns: 
-        - "createUsers/**"
+        - "createUsers/handler.js"
     events:
       - http:
           path: users
@@ -54,7 +54,7 @@ functions:
     handler: updateUsers/handler.updateUsers
     package:
       patterns: 
-        - "updateUsers/**"
+        - "updateUsers/handler.js"
     events:
       - http:
           path: users/{id}
@@ -63,7 +63,7 @@ functions:
     handler: deleteUsers/handler.deleteUsers
     package:
       patterns: 
-        - "deleteUsers/**"
+        - "deleteUsers/handler.py"
     runtime: python3.8
     events:
       - http:
