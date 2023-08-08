@@ -19,7 +19,6 @@ const createUsers = async (event, context) => {
     .put(params)
     .promise()
     .then((res) => {
-      console.log(res);
       return {
         statusCode: 200,
         body: JSON.stringify({ user: params.Item }),
