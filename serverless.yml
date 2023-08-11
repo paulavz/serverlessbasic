@@ -3,12 +3,21 @@ service: crub-severless-user
 provider:
   name: aws
   runtime: nodejs14.x
+  apiGateway:
+    apiKeys: 
+      - crub-severless-user-apikey 
   iam:
     role:
       statements:
          - Effect: Allow
            Action: 'dynamodb:*'
            Resource: arn:aws:dynamodb:us-east-1:276985252813:table/usersTable
+         - Effect: Allow
+           Action: 's3:*'
+           Resource: arn:aws:s3:::bucket-serverless-courser-93829472/*      
+  environment:
+    BUCKET: bucket-serverless-courser-93829472
+    SECRET_EGG: ${ssm:/SECRET_EGG}
 
 custom:
   dynamodb:
@@ -22,16 +31,22 @@ custom:
     # Uncomment only if you already have a DynamoDB running locally
     # noStart: true
 
-plugins:
-  - serverless-dynamodb-local
-  - serverless-offline
+#plugins:
+#  - serverless-dynamodb-local
+#  - serverless-offline
 
 package:
   individually: true
   patterns: 
     - "!*/**"
+    - "!*.zip"
 
 functions:
+  custom-authorizer:
+    handler: authorizer/handler.authorize
+    package:
+      patterns: 
+        - "authorizer/handler.js"
   get-users:
     handler: getUsers/handler.getUsers
     package:
@@ -39,8 +54,13 @@ functions:
         - "getUsers/handler.js"
     events:
       - http:
+          private: true
           path: users/{id}
           method: GET
+          request:
+            parameters:
+              paths:
+                id: true
   create-users:
     handler: createUsers/handler.createUsers
     package:
@@ -49,7 +69,13 @@ functions:
     events:
       - http:
           path: users
+          authorizer:
+            name: custom-authorizer
+            resultTtlInSeconds: 15
           method: POST
+          request:
+            schemas:
+              application/json: ${file(schemas/user-schemas.json)}
   update-users:
     handler: updateUsers/handler.updateUsers
     package:
@@ -59,6 +85,12 @@ functions:
       - http:
           path: users/{id}
           method: PATCH
+          request:
+            parameters:
+              paths:
+                id: true
+            schemas:
+              application/json: ${file(schemas/user-schemas.json)}
   delete-users:
     handler: deleteUsers/handler.deleteUsers
     package:
@@ -69,6 +101,45 @@ functions:
       - http:
           path: users/{id}
           method: DELETE
+          request:
+            parameters:
+              paths:
+                id: true
+  signedURL:
+    handler: signedurl/handler.signedS3URL
+    package:
+      patterns: 
+        - "signedurl/handler.js"
+    events:
+      - http:
+          path: signedurl
+          method: GET
+          request:
+            parameters:
+              querystrings: 
+                filename: true
+  thumbGenerator:
+    handler: thumbnail/handler.thumbnailGenerator
+    layers:
+      - { Ref: BaseLambdaLayer }
+    package:
+      patterns: 
+        - "thumbnail/handler.js"
+    events:
+      - s3:
+          bucket: bucket-serverless-courser-93829472
+          event: s3:ObjectCreated:*
+          existing: true
+          rules:
+            - prefix: upload/
+
+layers:
+  base:
+    name: "prd-dependencies"
+    compatibleRuntimes:
+      - "nodejs14.x"
+    package:
+      artifact: app/nodejs.zip
 
 resources:
   Resources:
@@ -85,3 +156,29 @@ resources:
         ProvisionedThroughput:
           ReadCapacityUnits: 1
           WriteCapacityUnits: 1
+    S3Bucket:
+      Type: AWS::S3::Bucket
+      Properties:
+      #  AccessControl: PublicRead
+        BucketName: bucket-serverless-courser-93829472
+        PublicAccessBlockConfiguration:
+          BlockPublicAcls: false
+        OwnershipControls:
+          Rules:
+            - ObjectOwnership: ObjectWriter
+    SampleBucketPolicy:
+      Type: AWS::S3::BucketPolicy
+      Properties:
+        Bucket: !Ref S3Bucket
+        PolicyDocument:
+          Version: "2012-10-17"
+          Statement:
+            - Action:
+                - 's3:GetObject'
+              Effect: Allow
+              Resource: !Join
+                - ''
+                - - 'arn:aws:s3:::'
+                  - !Ref S3Bucket
+                  - /*
+              Principal: '*'
