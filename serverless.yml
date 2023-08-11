@@ -17,6 +17,7 @@ provider:
            Resource: arn:aws:s3:::bucket-serverless-courser-93829472/*      
   environment:
     BUCKET: bucket-serverless-courser-93829472
+    SECRET_EGG: ${ssm:/SECRET_EGG}
 
 custom:
   dynamodb:
@@ -41,6 +42,11 @@ package:
     - "!*.zip"
 
 functions:
+  custom-authorizer:
+    handler: authorizer/handler.authorizer
+    package:
+      patterns: 
+        - "authorizer/handler.js"
   get-users:
     handler: getUsers/handler.getUsers
     package:
@@ -63,6 +69,9 @@ functions:
     events:
       - http:
           path: users
+          authorizer:
+            name: custom-authorizer
+            resultTtlInSeconds: 15
           method: POST
           request:
             schemas:
