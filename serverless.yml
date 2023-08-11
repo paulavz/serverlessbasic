@@ -43,7 +43,7 @@ package:
 
 functions:
   custom-authorizer:
-    handler: authorizer/handler.authorizer
+    handler: authorizer/handler.authorize
     package:
       patterns: 
         - "authorizer/handler.js"
